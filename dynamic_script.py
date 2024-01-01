@@ -19,7 +19,25 @@ def get_script_content(script_name):
 def run_terminal_command(command):
     os.system(command)
 
+def parse_commands(commands):
+    parsed_commands = []
 
+    for line in commands.split('\n'):
+        if line.startswith('NEWFILE') or line.startswith('OVERWRITE') or line.startswith('TERMINAL COMMAND') or line.startswith('GETOUTPUT') or line.startswith('DONE'):
+            command = ""
+            contents = []
+            parts = line.split(" : ")
+
+            if len(parts) > 0:
+                command = parts[0]
+                del parts[0]
+            
+            if len(parts) > 0:
+                contents = parts
+
+            parsed_commands.append((command,contents))
+
+    return parsed_commands
 
 def test():
     # Define the script content (you can modify this as needed)
