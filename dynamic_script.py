@@ -1,28 +1,43 @@
 from dotenv import load_dotenv
 import os
+import subprocess
+
+
 import openai
+from openai import OpenAI
 
-api_key = "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"
-openai.api_key = api_key
+# Load environment variables from .env
+load_dotenv()
 
-prompt = """
-I have a system in place to write and delete code files on a hard drive from you. 
-The program is running on macOS. 
-I need you to not give any comments or anything other than the commands necessary to do whatever you want. 
-Your available commands are: NEWFILE : (path of new file) : (text for new file), 
-TERMINAL COMMAND : (command you want to enter in terminal)
+# Access the API key from the environment variables
+env_key = os.getenv("OPENAI_API_KEY")
+
+
+def make_chat_request():
+    # Create OpenAI client
+    chatclient = openai.OpenAI(api_key=env_key)
+
+    chatprompt = """
+Write no extra words
+Target system : MacOs11
+Commands: 
+1. WRITEFILE : (path) : (text)
+2. TERMINAL COMMAND : (command)
 """
 
-response = openai.Completion.create(
-    engine="text-davinci-003",
-    prompt=prompt,
-    max_tokens=100
+userprompt = "Write and run a script that prints Hello World"
+
+completion = chatclient.chat.completions.create(
+  model="gpt-3.5-turbo",
+  messages=[
+    {"role": "system", "content": chatprompt},
+    {"role": "user", "content": userprompt}
+  ]
 )
 
-generated_code = response['choices'][0]['text']
+generated_code = completion.choices[0].message
 print(generated_code)
-
-working_path: str = os.getcwd()
+    
 
 def create_script(script_name, script_content):
     script_path = os.path.join(working_path, script_name)
@@ -38,8 +53,22 @@ def get_script_content(script_name):
     with open(script_path, 'w') as script_file:
         return script_file.read()
 
+# Runs terminal command and returns output
 def run_terminal_command(command):
-    os.system(command)
+    try:
+        # Run the command and capture the output
+        result = subprocess.run(command, shell=True, text=True, capture_output=True)
+
+        # Check if the command was successful (return code 0)
+        if result.returncode == 0:
+            # Return the captured output
+            return result.stdout.strip()
+        else:
+            # Print the error message if the command failed
+            return f"Error: {result.stderr}"
+    except Exception as e:
+        # Handle any exceptions that might occur during the subprocess run
+        return f"Exception: {e}"
 
 def parse_commands(commands):
     parsed_commands = []
