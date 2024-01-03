@@ -70,6 +70,30 @@ def run_terminal_command(command):
         # Handle any exceptions that might occur during the subprocess run
         return f"Exception: {e}"
 
+def insert_code_block(file_path, line_number, code_block):
+    # Read the content of the file
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    # Insert the code block at the specified line number
+    lines.insert(line_number - 1, code_block + '\n')
+
+    # Write the modified content back to the file
+    with open(file_path, 'w') as file:
+        file.writelines(lines)
+
+def delete_code_lines(file_path, start_line, end_line):
+    # Read the content of the file
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    # Delete the specified range of lines
+    del lines[start_line - 1:end_line]
+
+    # Write the modified content back to the file
+    with open(file_path, 'w') as file:
+        file.writelines(lines)
+
 def parse_commands(commands):
     parsed_commands = []
 
