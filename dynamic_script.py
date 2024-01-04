@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 import subprocess
 
+import multiprocessing
 
 import openai
 from openai import OpenAI
@@ -12,8 +13,8 @@ load_dotenv()
 # Access the API key from the environment variables
 env_key = os.getenv("OPENAI_API_KEY")
 
-
-def make_chat_request():
+# CHAT FUNCTIONS
+def make_chat_request(cp):
     # Create OpenAI client
     chatclient = openai.OpenAI(api_key=env_key)
 
@@ -24,6 +25,8 @@ def make_chat_request():
     1. WRITEFILE : (path) : (text)
     2. TERMINAL COMMAND : (command)
     """
+
+    chatprompt = cp
 
     userprompt = "Write and run a script that prints Hello World"
 
@@ -37,8 +40,28 @@ def make_chat_request():
 
     generated_code = completion.choices[0].message
     print(generated_code)
-    
 
+def parse_commands(commands):
+    parsed_commands = []
+
+    for line in commands.split('\n'):
+        if line.startswith('NEWFILE') or line.startswith('OVERWRITE') or line.startswith('TERMINAL COMMAND') or line.startswith('GETOUTPUT') or line.startswith('DONE'):
+            command = ""
+            contents = []
+            parts = line.split(" : ")
+
+            if len(parts) > 0:
+                command = parts[0]
+                del parts[0]
+            
+            if len(parts) > 0:
+                contents = parts
+
+            parsed_commands.append((command,contents))
+
+    return parsed_commands    
+    
+# CODE MODIFICATION FUNCTIONS
 def create_script(script_name, script_content):
     script_path = os.path.join(working_path, script_name)
     
@@ -94,29 +117,25 @@ def delete_code_lines(file_path, start_line, end_line):
     with open(file_path, 'w') as file:
         file.writelines(lines)
 
-def parse_commands(commands):
-    parsed_commands = []
+# PROCESS FUNCTIONS
 
-    for line in commands.split('\n'):
-        if line.startswith('NEWFILE') or line.startswith('OVERWRITE') or line.startswith('TERMINAL COMMAND') or line.startswith('GETOUTPUT') or line.startswith('DONE'):
-            command = ""
-            contents = []
-            parts = line.split(" : ")
+backQ = multiprocessing.Queue()
+frontQ = multiprocessing.Queue()
 
-            if len(parts) > 0:
-                command = parts[0]
-                del parts[0]
-            
-            if len(parts) > 0:
-                contents = parts
+def chat_back(frontQ):
+    if not frontQ.empty():
+        pass
 
-            parsed_commands.append((command,contents))
+def chat_front(backQ):
+    if not backQ.empty():
+        pass
 
-    return parsed_commands
+back_process = multiprocessing.Process(target=chat_back, args=frontQ)
+front_process = multiprocessing.Process(target=chat_front, args=backQ)
 
+# Running processes
 
-
-def test():
+def main():
     # Define the script content (you can modify this as needed)
     script_content = """
 print("Hello, this is a dynamically created Python script!")
@@ -129,4 +148,4 @@ print("You can add your own logic here.")
     run_terminal_command(f"python3 ")
 
 if __name__ == "__main__":
-    test()
+    main()
