@@ -21,9 +21,8 @@ def make_chat_request(cp):
     chatprompt = """
     Write no extra words
     Target system : MacOs11
-    Commands: 
-    1. WRITEFILE : (path) : (text)
-    2. TERMINAL COMMAND : (command)
+    Commands available: 
+    1. TERMINAL COMMAND : (command)
     """
 
     chatprompt = cp
@@ -41,11 +40,11 @@ def make_chat_request(cp):
     generated_code = completion.choices[0].message
     print(generated_code)
 
-def parse_commands(commands):
+def parse_commands(command_string):
     parsed_commands = []
 
-    for line in commands.split('\n'):
-        if line.startswith('NEWFILE') or line.startswith('OVERWRITE') or line.startswith('TERMINAL COMMAND') or line.startswith('GETOUTPUT') or line.startswith('DONE'):
+    for line in command_string.split('\n'):
+        if line.startswith('NEWFILE') or line.startswith('OVERWRITE') or line.startswith('TERMINAL COMMAND') or line.startswith('GETOUTPUT') or line.startswith('DONE') or line.startswith('WRITEFILE'):
             command = ""
             contents = []
             parts = line.split(" : ")
@@ -60,7 +59,15 @@ def parse_commands(commands):
             parsed_commands.append((command,contents))
 
     return parsed_commands    
-    
+
+def execute_commands(commands_list):
+    for command_tuple in commands_list:
+        command_type = command_tuple[0]
+        command_content = command_content[1]
+
+        if command_type == "TERMINAL COMMAND": 
+            run_terminal_command(command_content) 
+
 # CODE MODIFICATION FUNCTIONS
 def create_script(script_name, script_content):
     script_path = os.path.join(working_path, script_name)
@@ -119,23 +126,40 @@ def delete_code_lines(file_path, start_line, end_line):
 
 # PROCESS FUNCTIONS
 
+# Queue commands 
+# Format: tuple ( Command type : Sub type : content )
+# Example: ( FILECOMM : WRITE : "print(hello world)")
+
+KILL  = 1
+
+
+# Process queues
+
 backQ = multiprocessing.Queue()
 frontQ = multiprocessing.Queue()
 
-def chat_back(frontQ):
-    if not frontQ.empty():
+# Backend process handling communication with GPT model
+def chat_back(fQ):
+    if not fQ.empty():
         pass
 
-def chat_front(backQ):
-    if not backQ.empty():
+# Frontend process handling communication with user
+def chat_front(bQ):
+    if not bQ.empty():
         pass
 
-back_process = multiprocessing.Process(target=chat_back, args=frontQ)
-front_process = multiprocessing.Process(target=chat_front, args=backQ)
+back_process = multiprocessing.Process(target=chat_back, args=(frontQ,))
+front_process = multiprocessing.Process(target=chat_front, args=(backQ,))
 
 # Running processes
 
 def main():
+    
+    
+    
+    
+    
+    
     # Define the script content (you can modify this as needed)
     script_content = """
 print("Hello, this is a dynamically created Python script!")
