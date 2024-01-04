@@ -20,7 +20,7 @@ def make_chat_request(userprompt):
 
     chatprompt = """
         Write commands in format below without ANY extra words
-        Output ONLY commands, no comments
+        Output ONLY commands, no instructions
         Target system : MacOs11
         Comments : No
         Command format example: 
@@ -31,10 +31,10 @@ def make_chat_request(userprompt):
     completion = chatclient.chat.completions.create(
     model="gpt-3.5-turbo",
     messages=[
-
+        {"role": "system", "content": "You are inputting terminal commands into a computer. Output each individual command in this format : TERMINAL COMMAND : (command)\n TERMINAL COMMAND : (second command) etc..."},
         {"role": "user", "content": "Create python file in terminal that says hello world when run"},
         {"role": "assistant", "content": 'TERMINAL COMMAND : echo \'print("hello world")\' > helloworldfile.py \n TERMINAL COMMAND : python3 helloworldfile.py'},
-        {"role": "user", "content": "Create python file in terminal that adds 2 and 3 when run"},
+        {"role": "user", "content": userprompt},
 
         ]
     )
@@ -49,7 +49,7 @@ def parse_commands(command_string):
         if line.startswith('NEWFILE') or line.startswith('OVERWRITE') or line.startswith('TERMINAL COMMAND') or line.startswith('GETOUTPUT') or line.startswith('DONE') or line.startswith('WRITEFILE'):
             command = ""
             contents = []
-            parts = line.split(" : ")
+            parts = line.split(":")
 
             if len(parts) > 0:
                 command = parts[0]
@@ -70,7 +70,7 @@ def execute_commands(commands_list):
         command_type = command_tuple[0]
         command_content = command_tuple[1]
 
-        if command_type == "TERMINAL COMMAND": 
+        if "TERMINAL COMMAND" in command_type:
             resultadd = run_terminal_command(command_content) 
             result += resultadd
 
@@ -165,7 +165,7 @@ front_process = multiprocessing.Process(target=chat_front, args=(backQ,))
 
 def main():
     
-    chat_response = make_chat_request("create a python script that says hello world")
+    chat_response = make_chat_request("create a python script that prints hello world to terminal, then run it")
     print(chat_response)
 
     #chat_response = 'TERMINAL COMMAND : echo \'print("hello world")\' > filename111.py \nTERMINAL COMMAND : python3 filename111.py'
