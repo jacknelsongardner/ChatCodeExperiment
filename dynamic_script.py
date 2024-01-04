@@ -140,20 +140,12 @@ def delete_code_lines(file_path, start_line, end_line):
 # Format: tuple ( Command type : Sub type : content )
 # Example: ( FILECOMM : WRITE : "print(hello world)")
 
-KILL  = 1
-
-
-# Process queues
-
-backQ = multiprocessing.Queue()
-frontQ = multiprocessing.Queue()
-
 # Backend process handling communication with GPT model
-def chat_back(inQ,outQ):
+def chat_process(inQ,outQ):
     running = True
     while running:
         if not inQ.empty():
-            commandTuple = inQ.pop()
+            commandTuple = inQ.get()
             commandType = commandTuple[0]
             commandContent = commandTuple[1]
 
@@ -162,56 +154,42 @@ def chat_back(inQ,outQ):
                 chat_commands = parse_commands(chat_response)
                 
                 executed_result = execute_commands(chat_commands)
-                outQ.put(("RESULT",[executed_result]))
+
+                outQ.put(("RESULT",[chat_commands, executed_result]))
 
             elif "KILL" in commandType:
                 running = False
 
-# Frontend process handling communication with user
-def chat_front(inQ,outQ):
-    running = True
-    while running:
-        if not inQ.empty():
-            commandTuple = inQ.pop()
-            commandType = commandTuple[0]
-            commandContent = commandTuple[1]
-
-            if "RESULT" in commandType:
-                print(commandContent)
-                
-        else:
-            print("please enter a coding prompt below:")
-            userprompt = input()
-            if "QUITCODE101" in userprompt: 
-                outQ.put(userprompt)
-
+# Frontend process handling communication with the user
+def front_process(inQ,outQ):
+    pass
             
 
-
-back_process = multiprocessing.Process(target=chat_back, args=(frontQ,))
-front_process = multiprocessing.Process(target=chat_front, args=(backQ,))
-
+            
 # Running processes
-
 def main():
     
-    front_process.start()
-    back_process.start()
+    inQ = multiprocessing.Queue()
+    outQ = multiprocessing.Queue()
 
-    back_process.join()
-    front_process.join()
+    playing = True
+    while playing:
+        
+        chat_input = input("Enter chat request:>> ")
 
-    '''
-    chat_response = make_chat_request("create a python script that prints hello world to terminal, then run it")
-    print(chat_response)
+        chat = multiprocessing.Process(target=chat_process, args=(inQ, outQ))
+        chat.start()
+        inQ.put(("USER REQUEST",[chat_input]))
 
-    #chat_response = 'TERMINAL COMMAND : echo \'print("hello world")\' > filename111.py \nTERMINAL COMMAND : python3 filename111.py'
-    chat_commands = parse_commands(chat_response)
-    print(chat_commands)
+        if not outQ.empty():
+            command_tuple = outQ.get()
+            command_type = command_tuple[0]
+            command_content = command_tuple[1]
 
-    execute_result = execute_commands(chat_commands)
-    print(execute_result)
-    '''
+            if "RESULT" in command_type:
+                print(command_content)
+
+        
 
 if __name__ == "__main__":
     main()
