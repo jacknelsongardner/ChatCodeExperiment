@@ -149,14 +149,44 @@ backQ = multiprocessing.Queue()
 frontQ = multiprocessing.Queue()
 
 # Backend process handling communication with GPT model
-def chat_back(fQ):
-    if not fQ.empty():
-        pass
+def chat_back(inQ,outQ):
+    running = True
+    while running:
+        if not inQ.empty():
+            commandTuple = inQ.pop()
+            commandType = commandTuple[0]
+            commandContent = commandTuple[1]
+
+            if "USER REQUEST" in commandType:
+                chat_response = make_chat_request(commandContent[0])
+                chat_commands = parse_commands(chat_response)
+                
+                executed_result = execute_commands(chat_commands)
+                outQ.put(("RESULT",[executed_result]))
+
+            elif "KILL" in commandType:
+                running = False
 
 # Frontend process handling communication with user
-def chat_front(bQ):
-    if not bQ.empty():
-        pass
+def chat_front(inQ,outQ):
+    running = True
+    while running:
+        if not inQ.empty():
+            commandTuple = inQ.pop()
+            commandType = commandTuple[0]
+            commandContent = commandTuple[1]
+
+            if "RESULT" in commandType:
+                print(commandContent)
+                
+        else:
+            print("please enter a coding prompt below:")
+            userprompt = input()
+            if "QUITCODE101" in userprompt: 
+                outQ.put(userprompt)
+
+            
+
 
 back_process = multiprocessing.Process(target=chat_back, args=(frontQ,))
 front_process = multiprocessing.Process(target=chat_front, args=(backQ,))
@@ -165,6 +195,13 @@ front_process = multiprocessing.Process(target=chat_front, args=(backQ,))
 
 def main():
     
+    front_process.start()
+    back_process.start()
+
+    back_process.join()
+    front_process.join()
+
+    '''
     chat_response = make_chat_request("create a python script that prints hello world to terminal, then run it")
     print(chat_response)
 
@@ -174,6 +211,7 @@ def main():
 
     execute_result = execute_commands(chat_commands)
     print(execute_result)
+    '''
 
 if __name__ == "__main__":
     main()
