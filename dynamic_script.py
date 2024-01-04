@@ -14,31 +14,33 @@ load_dotenv()
 env_key = os.getenv("OPENAI_API_KEY")
 
 # CHAT FUNCTIONS
-def make_chat_request(cp):
+def make_chat_request(userprompt):
     # Create OpenAI client
     chatclient = openai.OpenAI(api_key=env_key)
 
     chatprompt = """
-    Write no extra words
-    Target system : MacOs11
-    Commands available: 
-    1. TERMINAL COMMAND : (command)
+        Write commands in format below without ANY extra words
+        Output ONLY commands, no comments
+        Target system : MacOs11
+        Comments : No
+        Command format example: 
+        TERMINAL COMMAND : echo pythonfile.py\n
+        TERMINAL COMMAND : python3 pythonfile.py etc..
     """
-
-    chatprompt = cp
-
-    userprompt = "Write and run a script that prints Hello World"
 
     completion = chatclient.chat.completions.create(
     model="gpt-3.5-turbo",
     messages=[
-        {"role": "system", "content": chatprompt},
-        {"role": "user", "content": userprompt}
-    ]
+
+        {"role": "user", "content": "Create python file in terminal that says hello world when run"},
+        {"role": "assistant", "content": 'TERMINAL COMMAND : echo \'print("hello world")\' > helloworldfile.py \n TERMINAL COMMAND : python3 helloworldfile.py'},
+        {"role": "user", "content": "Create python file in terminal that adds 2 and 3 when run"},
+
+        ]
     )
 
-    generated_code = completion.choices[0].message
-    print(generated_code)
+    output = completion.choices[0].message
+    return str(output.content)
 
 def parse_commands(command_string):
     parsed_commands = []
@@ -61,15 +63,21 @@ def parse_commands(command_string):
     return parsed_commands    
 
 def execute_commands(commands_list):
+    result = "RESULTS FROM TERMINAL:\n"
+
     for command_tuple in commands_list:
+        
         command_type = command_tuple[0]
-        command_content = command_content[1]
+        command_content = command_tuple[1]
 
         if command_type == "TERMINAL COMMAND": 
-            run_terminal_command(command_content) 
+            resultadd = run_terminal_command(command_content) 
+            result += resultadd
+
+    return result
 
 # CODE MODIFICATION FUNCTIONS
-def create_script(script_name, script_content):
+def create_script(script_name, script_content, working_path):
     script_path = os.path.join(working_path, script_name)
     
     with open(script_path, 'w') as script_file:
@@ -88,11 +96,13 @@ def run_terminal_command(command):
     try:
         # Run the command and capture the output
         result = subprocess.run(command, shell=True, text=True, capture_output=True)
-
+        
         # Check if the command was successful (return code 0)
         if result.returncode == 0:
             # Return the captured output
-            return result.stdout.strip()
+            output =  result.stdout.strip()
+
+            return output
         else:
             # Print the error message if the command failed
             return f"Error: {result.stderr}"
@@ -155,21 +165,15 @@ front_process = multiprocessing.Process(target=chat_front, args=(backQ,))
 
 def main():
     
-    
-    
-    
-    
-    
-    # Define the script content (you can modify this as needed)
-    script_content = """
-print("Hello, this is a dynamically created Python script!")
-print("You can add your own logic here.")
-    """
+    chat_response = make_chat_request("create a python script that says hello world")
+    print(chat_response)
 
-    # Create and run the script in the current working directory
-    script_name = 'dynamic_script.py'
-    script_path = create_script(script_name, script_content)
-    run_terminal_command(f"python3 ")
+    #chat_response = 'TERMINAL COMMAND : echo \'print("hello world")\' > filename111.py \nTERMINAL COMMAND : python3 filename111.py'
+    chat_commands = parse_commands(chat_response)
+    print(chat_commands)
+
+    execute_result = execute_commands(chat_commands)
+    print(execute_result)
 
 if __name__ == "__main__":
     main()
