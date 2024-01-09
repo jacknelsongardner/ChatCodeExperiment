@@ -1,11 +1,22 @@
 from dotenv import load_dotenv
 import os
 import subprocess
-
+import tkinter as tk
+import re
 import multiprocessing
 
 import openai
 from openai import OpenAI
+
+# Text Colors
+COLOR_GREEN = "\033[92m"
+COLOR_YELLOW = "\033[93m"
+COLOR_BLUE = "\033[94m"
+COLOR_WHITE = "\033[97m"
+
+# Command codes
+TERMINAL_COMMAND = "000"
+APPROVE_RESULT = "100"
 
 # Load environment variables from .env
 load_dotenv()
@@ -13,43 +24,79 @@ load_dotenv()
 # Access the API key from the environment variables
 env_key = os.getenv("OPENAI_API_KEY")
 
+# Creating variables to store base and work folders
+base_folder = os.getcwd()
+work_folder = os.path.join(base_folder,"WORK")
+
 # CHAT FUNCTIONS
-def make_chat_request(userprompt):
+def make_chat_request(userprompt: str):
     # Create OpenAI client
     chatclient = openai.OpenAI(api_key=env_key)
 
-    chatprompt = """
-        Write commands in format below without ANY extra words
-        Output ONLY commands, no instructions
-        Target system : MacOs11
-        Comments : No
-        Command format example: 
-        TERMINAL COMMAND : echo pythonfile.py\n
-        TERMINAL COMMAND : python3 pythonfile.py etc..
-    """
-
-    completion = chatclient.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role": "system", "content": "You are inputting terminal commands into a computer. Output each individual command in this format : TERMINAL COMMAND : (command)\n TERMINAL COMMAND : (second command) etc..."},
+    chatprompt = '''
+    You are inputting terminal commands into a macOS11 computer. 
+    Output each individual command in this format: 
+    TERMINAL COMMAND : //command (enters command to terminal) 
+    example: TERMINAL COMMAND : (command)\n TERMINAL COMMAND : (second command) etc...always run a terminal commmand at the end to make sure the file you made runs "
+    '''
+    past_messages = [
+        {"role": "system", "content": chatprompt},
         {"role": "user", "content": "Create python file in terminal that says hello world when run"},
         {"role": "assistant", "content": 'TERMINAL COMMAND : echo \'print("hello world")\' > helloworldfile.py \n TERMINAL COMMAND : python3 helloworldfile.py'},
         {"role": "user", "content": userprompt},
 
-        ]
-    )
+    ]
+    
+    asking = True
 
-    output = completion.choices[0].message
-    return str(output.content)
+    while asking:
+
+        completion = chatclient.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=past_messages
+        )
+
+        chat_output = completion.choices[0].message.content
+        
+        print(f"{COLOR_BLUE}CHAT OUTPUT:\n {chat_output}\n\n")
+        #print(f"{past_messages}\n\nf{COLOR_YELLOW}")
+        
+        past_response = {"role": "assistant", "content": f"{chat_output}"}
+        past_messages.append(past_response)
+
+        chat_commands = parse_commands(chat_output)
+        
+        #print(f"{COLOR_GREEN}CHAT COMMANDS\n{chat_commands}\n\n")
+
+        if any('APPROVE' in command[0] for command in chat_commands):            
+            asking = False
+
+        executed_result = execute_commands(chat_commands)
+
+        new_request = {"role": "user", "content": f"If output as expected, just say APPROVE : program runs as expected . otherwise, ouput new commands to replace script like in previous. Results: {executed_result}"}
+        past_messages.append(new_request)
+
+    return past_messages
+
+def parse_brackets(response_string):
+    # Define a regular expression pattern to match substrings inside curly braces
+    pattern = r'\{([^}]+)\}'
+    
+    # Use re.findall to find all matches in the input string
+    matches = re.findall(pattern, response_string)
+    
+    return matches
 
 def parse_commands(command_string):
-    parsed_commands = []
+    # Parsing commands from brackets as list
+    parsed_commands = parse_brackets(command_string)
 
-    for line in command_string.split('\n'):
-        if line.startswith('NEWFILE') or line.startswith('OVERWRITE') or line.startswith('TERMINAL COMMAND') or line.startswith('GETOUTPUT') or line.startswith('DONE') or line.startswith('WRITEFILE'):
+    # 
+    for command in parsed_commands:
+        if command.startswith('TERMINAL COMMAND') or command.startswith('APPROVE'):
             command = ""
             contents = []
-            parts = line.split(":")
+            parts = command.split(":")
 
             if len(parts) > 0:
                 command = parts[0]
@@ -95,7 +142,7 @@ def get_script_content(script_name):
 def run_terminal_command(command):
     try:
         # Run the command and capture the output
-        result = subprocess.run(command, shell=True, text=True, capture_output=True)
+        result = subprocess.run(command, shell=True, text=True, capture_output=True, cwd=work_folder)
         
         # Check if the command was successful (return code 0)
         if result.returncode == 0:
@@ -133,63 +180,18 @@ def delete_code_lines(file_path, start_line, end_line):
     # Write the modified content back to the file
     with open(file_path, 'w') as file:
         file.writelines(lines)
-
-# PROCESS FUNCTIONS
-
-# Queue commands 
-# Format: tuple ( Command type : Sub type : content )
-# Example: ( FILECOMM : WRITE : "print(hello world)")
-
-# Backend process handling communication with GPT model
-def chat_process(inQ,outQ):
-    running = True
-    while running:
-        if not inQ.empty():
-            commandTuple = inQ.get()
-            commandType = commandTuple[0]
-            commandContent = commandTuple[1]
-
-            if "USER REQUEST" in commandType:
-                chat_response = make_chat_request(commandContent[0])
-                chat_commands = parse_commands(chat_response)
-                
-                executed_result = execute_commands(chat_commands)
-
-                outQ.put(("RESULT",[chat_commands, executed_result]))
-
-            elif "KILL" in commandType:
-                running = False
-
-# Frontend process handling communication with the user
-def front_process(inQ,outQ):
-    pass
-            
-
-            
-# Running processes
-def main():
     
-    inQ = multiprocessing.Queue()
-    outQ = multiprocessing.Queue()
+# Main function
+def main():
 
     playing = True
     while playing:
         
-        chat_input = input("Enter chat request:>> ")
+        chat_input = input(f"{COLOR_YELLOW}Enter chat request:>> ")
 
-        chat = multiprocessing.Process(target=chat_process, args=(inQ, outQ))
+        chat = multiprocessing.Process(target=make_chat_request, args=(chat_input,))
         chat.start()
-        inQ.put(("USER REQUEST",[chat_input]))
-
-        if not outQ.empty():
-            command_tuple = outQ.get()
-            command_type = command_tuple[0]
-            command_content = command_tuple[1]
-
-            if "RESULT" in command_type:
-                print(command_content)
-
-        
+        chat.join()
 
 if __name__ == "__main__":
     main()
