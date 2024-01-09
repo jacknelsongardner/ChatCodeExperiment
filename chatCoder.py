@@ -37,7 +37,6 @@ def make_chat_request(userprompt: str):
     You are inputting terminal commands into a macOS11 computer. 
     Output each individual command in this format (including brackets): 
     {TERMINAL COMMAND : //command (enters command to terminal)}
-    {APPROVE : //why it runs as expected} 
     example: TERMINAL COMMAND : (command)\n TERMINAL COMMAND : (second command) etc...always run a terminal commmand at the end to make sure the file you made has expeected code inside and runs as expected"
     '''
     past_messages = [
@@ -70,7 +69,8 @@ def make_chat_request(userprompt: str):
 
         executed_result = execute_commands(chat_commands)
         print(f"{COLOR_GREEN}{executed_result}")
-        new_request = {"role": "user", "content": executed_result}
+
+        new_request = {"role": "user", "content": str(executed_result) + "If output is successful as expected, write {APROVE : runs as expected} If not, write new terminal commands to correct your mistake" }
         past_messages.append(new_request)
 
     return past_messages
