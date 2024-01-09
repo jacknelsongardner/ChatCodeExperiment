@@ -15,8 +15,8 @@ COLOR_BLUE = "\033[94m"
 COLOR_WHITE = "\033[97m"
 
 # Command codes
-TERMINAL_COMMAND = "000"
-APPROVE_RESULT = "100"
+TERMINAL_COMMAND = "TERMINAL COMMAND"
+APPROVE_RESULT = "APPROVE"
 
 # Load environment variables from .env
 load_dotenv()
@@ -35,16 +35,16 @@ def make_chat_request(userprompt: str):
 
     chatprompt = '''
     You are inputting terminal commands into a macOS11 computer. 
-    Output each individual command in this format: 
-    TERMINAL COMMAND : //command (enters command to terminal) 
-    example: TERMINAL COMMAND : (command)\n TERMINAL COMMAND : (second command) etc...always run a terminal commmand at the end to make sure the file you made runs "
+    Output each individual command in this format (including brackets): 
+    {TERMINAL COMMAND : //command (enters command to terminal)}
+    {APPROVE : //why it runs as expected} 
+    example: TERMINAL COMMAND : (command)\n TERMINAL COMMAND : (second command) etc...always run a terminal commmand at the end to make sure the file you made has expeected code inside and runs as expected"
     '''
     past_messages = [
         {"role": "system", "content": chatprompt},
-        {"role": "user", "content": "Create python file in terminal that says hello world when run"},
-        {"role": "assistant", "content": 'TERMINAL COMMAND : echo \'print("hello world")\' > helloworldfile.py \n TERMINAL COMMAND : python3 helloworldfile.py'},
+        {"role": "user", "content": "Create python file in terminal that is blank"},
+        {"role": "assistant", "content": '{TERMINAL COMMAND : echo \'print(" ")\' > blankfile.py} \n {TERMINAL COMMAND : python3 blankfile.py}'},
         {"role": "user", "content": userprompt},
-
     ]
     
     asking = True
@@ -58,22 +58,19 @@ def make_chat_request(userprompt: str):
 
         chat_output = completion.choices[0].message.content
         
-        print(f"{COLOR_BLUE}CHAT OUTPUT:\n {chat_output}\n\n")
-        #print(f"{past_messages}\n\nf{COLOR_YELLOW}")
+        print(f"\n\n{COLOR_BLUE}CHAT OUTPUT:\n {chat_output}\n\n")
         
         past_response = {"role": "assistant", "content": f"{chat_output}"}
         past_messages.append(past_response)
 
         chat_commands = parse_commands(chat_output)
-        
-        #print(f"{COLOR_GREEN}CHAT COMMANDS\n{chat_commands}\n\n")
 
-        if any('APPROVE' in command[0] for command in chat_commands):            
+        if any(APPROVE_RESULT in command[0] for command in chat_commands):            
             asking = False
 
         executed_result = execute_commands(chat_commands)
-
-        new_request = {"role": "user", "content": f"If output as expected, just say APPROVE : program runs as expected . otherwise, ouput new commands to replace script like in previous. Results: {executed_result}"}
+        print(f"{COLOR_GREEN}{executed_result}")
+        new_request = {"role": "user", "content": executed_result}
         past_messages.append(new_request)
 
     return past_messages
@@ -89,21 +86,20 @@ def parse_brackets(response_string):
 
 def parse_commands(command_string):
     # Parsing commands from brackets as list
-    parsed_commands = parse_brackets(command_string)
+    string_commands = parse_brackets(command_string)
+
+    parsed_commands = []
 
     # 
-    for command in parsed_commands:
-        if command.startswith('TERMINAL COMMAND') or command.startswith('APPROVE'):
+    for elem in string_commands:
+
+        if elem.startswith(TERMINAL_COMMAND) or elem.startswith(APPROVE_RESULT):
             command = ""
             contents = []
-            parts = command.split(":")
+            parts = elem.split(":")
 
-            if len(parts) > 0:
-                command = parts[0]
-                del parts[0]
-            
-            if len(parts) > 0:
-                contents = parts
+            command = parts[0]
+            contents = parts[1]
 
             parsed_commands.append((command,contents))
 
