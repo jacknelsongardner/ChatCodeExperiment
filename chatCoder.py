@@ -36,13 +36,13 @@ def make_chat_request(userprompt: str):
     chatprompt = '''
     You are inputting terminal commands into a macOS11 computer. 
     Output each individual command in this format (including brackets): 
-    {TERMINAL COMMAND : //command (enters command to terminal)}
-    example: TERMINAL COMMAND : (command)\n TERMINAL COMMAND : (second command) etc...always run a terminal commmand at the end to make sure the file you made has expeected code inside and runs as expected"
+    {TERMINAL COMMAND => //command (enters command to terminal)}
+    example: TERMINAL COMMAND => (command)\n TERMINAL COMMAND => (second command) etc...always run a terminal commmand at the end to make sure the file you made has expeected code inside and runs as expected"
     '''
     past_messages = [
         {"role": "system", "content": chatprompt},
         {"role": "user", "content": "Create python file in terminal that is blank"},
-        {"role": "assistant", "content": '{TERMINAL COMMAND : echo \'print(" ")\' > blankfile.py} \n {TERMINAL COMMAND : python3 blankfile.py}'},
+        {"role": "assistant", "content": '{TERMINAL COMMAND => echo \'print(" ")\' > blankfile.py} \n {TERMINAL COMMAND => python3 blankfile.py}'},
         {"role": "user", "content": userprompt},
     ]
     
@@ -70,7 +70,7 @@ def make_chat_request(userprompt: str):
         executed_result = execute_commands(chat_commands)
         print(f"{COLOR_GREEN}{executed_result}")
 
-        new_request = {"role": "user", "content": str(executed_result) + "If output is successful as expected, write {APROVE : runs as expected} If not, write new terminal commands to correct your mistake" }
+        new_request = {"role": "user", "content": str(executed_result) + "If output is successful as expected, write {APROVE => runs as expected}. Don't forget the brackets or it won't run. If ouput not as expected, write new terminal commands to correct your mistake" }
         past_messages.append(new_request)
 
     return past_messages
@@ -96,7 +96,10 @@ def parse_commands(command_string):
         if elem.startswith(TERMINAL_COMMAND) or elem.startswith(APPROVE_RESULT):
             command = ""
             contents = []
-            parts = elem.split(":")
+            
+            
+
+            parts = elem.split("=>")
 
             command = parts[0]
             contents = parts[1]
@@ -129,7 +132,7 @@ def create_script(script_name, script_content, working_path):
     return script_path
 
 def get_script_content(script_name):
-    script_path = os.path.join(working_path, script_name)
+    script_path = os.path.join(work_folder, script_name)
 
     with open(script_path, 'w') as script_file:
         return script_file.read()
